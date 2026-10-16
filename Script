@@ -1,0 +1,236 @@
+
+(() => {
+  window.__neonUltimate?.cleanup?.();
+
+  const previous = document.getElementById("neon-ultimate");
+  previous?.remove();
+
+  const S = { on:false, cps:25, count:0, timer:null, priceLock:false };
+  const root = document.createElement("div");
+  root.id = "neon-ultimate";
+
+  root.innerHTML = `
+  <style>
+  #neon-ultimate {
+    position:fixed; top:65px; left:24px; width:320px;
+    z-index:2147483647; box-sizing:border-box; padding:18px;
+    color:#5dff62; background:#020904f5;
+    border:1px solid #39ff14; border-radius:10px;
+    box-shadow:0 0 10px #39ff14,0 0 35px #00ff4438;
+    font:13px/1.6 "Courier New",monospace;
+  }
+  #neon-ultimate * {box-sizing:border-box}
+  #neon-ultimate .hdr {
+    cursor:move; font-size:17px; font-weight:bold;
+    letter-spacing:1px; text-shadow:0 0 8px #39ff14;
+    border-bottom:1px solid #39ff1466; padding-bottom:12px;
+  }
+  #neon-ultimate .sub {color:#75a978;font-size:10px;letter-spacing:1px}
+  #neon-ultimate button {
+    color:#5dff62;background:#061509;border:1px solid #39ff14;
+    border-radius:4px;padding:8px;cursor:pointer;
+    font:bold 12px "Courier New",monospace;
+  }
+  #neon-ultimate button:hover {background:#39ff14;color:#001500}
+  #neon-ultimate .wide {width:100%;padding:11px;margin:12px 0}
+  #neon-ultimate input[type=range] {width:100%;accent-color:#39ff14}
+  #neon-ultimate input[type=number] {
+    width:100%;padding:8px;background:#020904;color:#39ff62;
+    border:1px solid #277b27;font:13px "Courier New",monospace;
+  }
+  #neon-ultimate .presets {
+    display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
+  }
+  #neon-ultimate .toggle {
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;border:1px solid #245c2a;padding:9px;margin-top:12px;
+  }
+  #neon-ultimate .close {float:right;border:0;font-size:17px;padding:0 5px}
+  #neon-ultimate .green {text-shadow:0 0 7px #39ff14}
+  </style>
+
+  <div class="hdr" id="nu-drag">
+    <button class="close" id="nu-close">×</button>
+    <span class="green">◈ NEON ULTIMATE</span>
+    <div class="sub">SPACEBAR CLICKER // CONTROL PANEL</div>
+  </div>
+
+  <div style="margin-top:14px">CLICK SPEED: <b id="nu-rate">25 CPS</b></div>
+  <input id="nu-slider" type="range" min="1" max="100" value="25">
+  <div class="sub">MIN 1 / MAX 100 ON SLIDER</div>
+
+  <div style="margin-top:12px">CUSTOM SPEED (1–1000 CPS)</div>
+  <input id="nu-custom" type="number" min="1" max="1000" value="25">
+
+  <div class="presets" style="margin-top:9px">
+    <button data-cps="5">5</button>
+    <button data-cps="10">10</button>
+    <button data-cps="25">25</button>
+    <button data-cps="50">50</button>
+    <button data-cps="100">100</button>
+  </div>
+
+  <button class="wide" id="nu-start">▶ START AUTO CLICKER</button>
+  <div>STATUS: <b id="nu-status">IDLE</b></div>
+  <div>KEY EVENTS: <b id="nu-count">0</b></div>
+
+  <div class="toggle">
+    <div>
+      <b>PRICE LOCK</b>
+      <div class="sub">Attempt to reset editable price fields</div>
+    </div>
+    <button id="nu-price">OFF</button>
+  </div>
+  <div class="sub" id="nu-price-status" style="margin-top:6px">
+    Price Lock disabled
+  </div>
+
+  <div class="toggle">
+    <div>
+      <b>HOTKEYS</b>
+      <div class="sub">F6 toggle / ESC stop</div>
+    </div>
+    <b>⌨ ACTIVE</b>
+  </div>
+  <div class="sub" style="margin-top:12px">
+    Drag header to move · × to unload
+  </div>`;
+
+  document.body.appendChild(root);
+  const $ = id => root.querySelector("#nu-" + id);
+
+  function rate(v) {
+    S.cps = Math.max(1, Math.min(1000, Math.round(Number(v) || 1)));
+    $("rate").textContent = S.cps + " CPS";
+    $("slider").value = Math.min(100, S.cps);
+    $("custom").value = S.cps;
+    if (S.on) start();
+  }
+
+  function stop() {
+    S.on = false;
+    clearTimeout(S.timer);
+    S.timer = null;
+    $("start").textContent = "▶ START AUTO CLICKER";
+    $("status").textContent = "IDLE";
+  }
+
+  function tick() {
+    if (!S.on) return;
+    const target = document.activeElement || document;
+    const options = {
+      key:" ", code:"Space", keyCode:32, which:32,
+      bubbles:true, cancelable:true
+    };
+    target.dispatchEvent(new KeyboardEvent("keydown", options));
+    target.dispatchEvent(new KeyboardEvent("keyup", options));
+    S.count++;
+    $("count").textContent = S.count.toLocaleString();
+    S.timer = setTimeout(tick, 1000 / S.cps);
+  }
+
+  function start() {
+    clearTimeout(S.timer);
+    S.on = true;
+    $("start").textContent = "■ STOP AUTO CLICKER";
+    $("status").textContent = "RUNNING · " + S.cps + " CPS";
+    tick();
+  }
+
+  $("start").onclick = () => S.on ? stop() : start();
+  $("slider").oninput = e => rate(e.target.value);
+  $("custom").onchange = e => rate(e.target.value);
+  root.querySelectorAll("[data-cps]").forEach(b => {
+    b.onclick = () => rate(b.dataset.cps);
+  });
+
+  // Experimental price lock:
+  // Only reset editable fields whose identifiers explicitly mention price/cost.
+  // This does not modify arbitrary text or guarantee the game's internal price.
+  function resetPriceFields() {
+    if (!S.priceLock) return;
+    const fields = root.ownerDocument.querySelectorAll(
+      'input:not(#nu-custom):not(#nu-slider), [contenteditable="true"]'
+    );
+    for (const el of fields) {
+      if (root.contains(el)) continue;
+      const signature = [
+        el.id, el.name, el.getAttribute("aria-label"),
+        el.getAttribute("placeholder")
+      ].join(" ").toLowerCase();
+
+      if (!/\b(price|cost)\b/.test(signature)) continue;
+
+      if (el.value !== undefined && el.value !== "1") {
+        const setter = Object.getOwnPropertyDescriptor(
+          Object.getPrototypeOf(el), "value"
+        )?.set;
+        if (setter) setter.call(el, "1");
+        else el.value = "1";
+        el.dispatchEvent(new Event("input", {bubbles:true}));
+        el.dispatchEvent(new Event("change", {bubbles:true}));
+      } else if (el.isContentEditable && el.textContent.trim() !== "1") {
+        el.textContent = "1";
+        el.dispatchEvent(new Event("input", {bubbles:true}));
+      }
+    }
+  }
+
+  let observer;
+  function enablePriceLock() {
+    S.priceLock = !S.priceLock;
+    $("price").textContent = S.priceLock ? "ON" : "OFF";
+    $("price-status").textContent = S.priceLock
+      ? "Scanning identifiable editable price fields"
+      : "Price Lock disabled";
+
+    if (S.priceLock) {
+      resetPriceFields();
+      observer = new MutationObserver(resetPriceFields);
+      observer.observe(document.body, {
+        childList:true, subtree:true, attributes:true,
+        attributeFilter:["value","name","id","aria-label"]
+      });
+    } else {
+      observer?.disconnect();
+      observer = null;
+    }
+  }
+  $("price").onclick = enablePriceLock;
+
+  function keys(e) {
+    if (e.code === "F6") {
+      e.preventDefault();
+      S.on ? stop() : start();
+    }
+    if (e.key === "Escape") stop();
+  }
+  document.addEventListener("keydown", keys);
+
+  let drag = null;
+  $("drag").addEventListener("mousedown", e => {
+    if (e.target.closest("button")) return;
+    const r = root.getBoundingClientRect();
+    drag = {x:e.clientX-r.left,y:e.clientY-r.top};
+    root.style.left = r.left + "px";
+    root.style.top = r.top + "px";
+  });
+  document.addEventListener("mousemove", e => {
+    if (!drag) return;
+    root.style.left = Math.max(0,e.clientX-drag.x) + "px";
+    root.style.top = Math.max(0,e.clientY-drag.y) + "px";
+  });
+  document.addEventListener("mouseup", () => drag = null);
+
+  function cleanup() {
+    stop();
+    observer?.disconnect();
+    document.removeEventListener("keydown", keys);
+    root.remove();
+    delete window.__neonUltimate;
+  }
+  $("close").onclick = cleanup;
+
+  window.__neonUltimate = {start,stop,cleanup,setRate:rate};
+  console.log("[NEON ULTIMATE] Control panel loaded.");
+})();
